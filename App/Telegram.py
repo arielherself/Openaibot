@@ -16,11 +16,13 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.asyncio_storage import StateMemoryStorage
 
 from App import Event
-from utils import Setting
+from utils import Setting, budgetSet
 from utils.Chat import Utils
 from utils.Data import DefaultData, User_Message, create_message, PublicReturn, Service_Data
 from utils.Frequency import Vitality
 from utils.Base import Tool
+
+LOGIC = ''
 
 time_interval = 60
 # 使用 deque 存储请求时间戳
@@ -105,6 +107,12 @@ class BotRunner(object):
             _hand = get_message(message)
             _hand: User_Message
             started = False
+            
+            #############
+            if budgetSet.doorman(_hand.from_user.id) == False:              # Clear context
+                await Event.Forget(_hand.from_user.id, _hand.from_chat.id)
+            await Event.RemindSet(_hand.from_user.id, LOGIC, bypass=True)   # Brainwashing
+            #############
 
             # 命令解析
             if _hand.text.startswith(("/chat", "/voice", "/write", "/forgetme","/style", "/remind")):
