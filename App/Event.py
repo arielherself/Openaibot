@@ -24,6 +24,7 @@ from utils.Data import DictUpdate, DefaultData, Api_keys, Service_Data, User_Mes
 from utils.Setting import ProfileReturn
 from utils.TTS import TTS_Clint, TTS_REQ
 from utils.Detect import DFA, Censor, get_start_name
+from utils import budgetSet
 
 #
 
@@ -179,6 +180,7 @@ async def Forget(user_id: int, chat_id: int):
     """
     from openai_kira.utils.data import MsgFlow
     _cid = DefaultData.composing_uid(user_id=user_id, chat_id=chat_id)
+    budgetSet.delete(user_id)
     return MsgFlow(uid=_cid).forget()
 
 
@@ -223,10 +225,10 @@ class Reply(object):
             return "TOO LONG"
 
         # 用量检测
-        _UsageManger = Usage(uid=user)
-        _Usage = _UsageManger.isOutUsage()
-        if _Usage["status"]:
-            return f"小时额度或者单人总额度用完，请申请重置或等待\n{_Usage['use']}"
+        # _UsageManger = Usage(uid=user)
+        # _Usage = _UsageManger.isOutUsage()
+        # if _Usage["status"]:
+        #     return f"小时额度或者单人总额度用完，请申请重置或等待\n{_Usage['use']}"
 
         # 内容审计
         try:
@@ -323,9 +325,9 @@ class Reply(object):
             _usage = 0
             _deal = f"OH no,api Outline or crash? \n {prompt}"
         # 更新额度
-        _AnalysisUsage = _UsageManger.renewUsage(usage=_usage)
+        # _AnalysisUsage = _UsageManger.renewUsage(usage=_usage)
         # 更新统计
-        DefaultData().setAnalysis(usage={f"{user}": _AnalysisUsage.total_usage})
+        # DefaultData().setAnalysis(usage={f"{user}": _AnalysisUsage.total_usage})
         # 人性化处理
         _deal = ContentDfa.filter_all(_deal)
         _deal = Utils.Humanization(_deal)
@@ -374,7 +376,7 @@ async def WhiteGroupCheck(group_id: int, WHITE: str = "") -> PublicReturn:
         return PublicReturn(status=True, trace="WhiteUserCheck")
 
 
-async def RemindSet(user_id, text) -> PublicReturn:
+async def RemindSet(user_id, text, bypass=False) -> PublicReturn:
     """
     :param user_id:
     :param text:
@@ -386,10 +388,19 @@ async def RemindSet(user_id, text) -> PublicReturn:
     if len(_remind_r) < 2:
         return PublicReturn(status=False, msg=f"", trace="Remind")
     _remind = _remind_r[1]
-    if Utils.tokenizer(_remind) > 333:
-        return PublicReturn(status=True, msg=f"过长:{_remind}", trace="Remind")
+    # if Utils.tokenizer(_remind) > 333:
+    #     return PublicReturn(status=True, msg=f"过长:{_remind}", trace="Remind")
     _remind = ContentDfa.filter_all(_remind)
-    if _csonfig.get("allow_change_head"):
+    if bypass:
+        if budgetSet.detect(user_id) == False:
+            budgetSet.write(user_id)
+            _remind = _remind.replace("你", "ME*")
+            _remind = _remind.replace("我", "YOU*")
+            _remind = _remind.replace("YOU*", "你")
+            _remind = _remind.replace("ME*", "我")
+            Header(uid=_user_id).set(_remind)
+        return PublicReturn(status=True, msg=f"设定:{_remind}\nNo reply this msg", trace="Remind") 
+    elif _csonfig.get("allow_change_head"):
         # _remind = _remind.replace("你是", "ME*扮演")
         _remind = _remind.replace("你", "ME*")
         _remind = _remind.replace("我", "YOU*")
